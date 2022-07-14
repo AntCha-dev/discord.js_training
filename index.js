@@ -9,55 +9,25 @@ const { token } = require('./config.json');
 // Créer une instance du bot
 const client = new Client({ intents: [Intents.FLAGS.GUILDS]});
 
-// J'inique que les commandes seront stockés dans une collections
-client.commands = new Collection();
+// Récupération de la route du dossier qui contiendra mes events
+const eventsPath = path.join(__dirname, 'events');
+// Récupération de chaques fichier js dans mon dossier
+const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
 
-// Indique le chemin de notre dossier de commandes
-const commandsPath = path.join(__dirname, 'commands');
-// Avec fs.readdirSync, j'inqiue de chercher tout les fichier dans le dossier commandes, et je les filtres pour ne récupéré
-// que les ficher .js
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+for (const file of eventFiles) {
+    //Récupération de chaque fichier et création du chemin complet en fusionnant le nom du dossier + du fichier
+    const filePath = path.join(eventsPath, file);
+    // Récupération de l'event via module.exports
+    const event = require(filePath);
 
-for (const file of commandFiles) {
-
-    // Récupération de tout les fichier js du dossier commands
-    const filePath = path.join(commandsPath, file);
-    // Récupération de toute la data des commandes
-    const command = require(filePath);
-
-    // Assignation de la data des commandes à leurs nom
-    client.commands.set(command.data.name, command);
-
-}
-
-// Quand le client est instancié, démarrer cet évenement une fois
-client.once('ready', () => {
-    console.log('Je suis prêts !');
-    client.user.setActivity("Échapper au tyran", {type: "PLAYING"});
-});
-
-
-// execute du l'action quand une interaction est créé
-client.on('interactionCreate', async interaction => {
-
-    //Si l'intéraction n'est pas une commande il ne return rien et on sort de l'action
-    if (!interaction.isCommand()) return;
-
-    const command = client.commands.get(interaction.commandName);
-
-    // Si je n'ai pas une commande alors je sort de l'action et n'execute pas la suite
-    if (!command) return;
-
-    // Si je récupère une commande, j'essaie de l'executer
-    try {
-        await command.execute(interaction);
-    } catch (error) {
-
-        console.log(error);
-        await interaction.reply({content: "Il y à eu une erreur pendant l'execution de la commande", ephemeral: true})
-
+    // Si il y à spécifié que l'evenement n'a qu'une utilisation alors je l'éxecute une fois
+    if (event.once) {
+        //J'execute la commande en récupérant le type d'event qui est le nom, le listener qui sera notre paramètre et je l'execute
+        client.once(event.name, (...args) => event.execute(...args));
+    } else {
+        client.on(event.name, (...args) => event.execute(...args));
     }
-});
+}
 
 // Connecter son client en utilsant le token
 client.login(token);
